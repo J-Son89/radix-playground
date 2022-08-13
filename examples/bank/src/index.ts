@@ -3,20 +3,20 @@ import { getAccountAddress, signTransaction } from 'pte-browser-extension-sdk';
 
 // Global states
 let accountAddress = undefined; // User account address
-let packageAddress = undefined; // GumballMachine package address
+let packageAddress =   document.getElementById('packageAddress').value; // GumballMachine package address
 let componentAddress = undefined; // GumballMachine component address
 let resourceAddress = undefined; // GUM resource address
 
 document.getElementById('fetchAccountAddress').onclick = async function () {
   // Retrieve extension user account address
   accountAddress = await getAccountAddress();
-  
+
   document.getElementById('accountAddress').innerText = accountAddress;
 };
 
 document.getElementById('publishPackage').onclick = async function () {
   // Load the wasm
-  const response = await fetch('./bank.wasm');
+  const response = await fetch('./gumball_machine.wasm');
   const wasm = new Uint8Array(await response.arrayBuffer());
 
   // Construct manifest
@@ -30,14 +30,14 @@ document.getElementById('publishPackage').onclick = async function () {
 
   // Update UI
   packageAddress = receipt.newPackages[0];
-  document.getElementById('packageAddress').innerText = packageAddress;
+  document.getElementById('packageAddress').value = packageAddress;
 };
 
 
 document.getElementById('instantiateComponent').onclick = async function () {
   // Construct manifest
   const manifest = new ManifestBuilder()
-    .callFunction(packageAddress, 'Bank', 'instantiate_bank',[ ])
+    .callFunction(document.getElementById('packageAddress').value, 'GumballMachine', 'instantiate_gumball_machine', ['Decimal("1.0")'])
     .build()
     .toString();
 
@@ -54,10 +54,14 @@ document.getElementById('instantiateComponent').onclick = async function () {
   }
 }
 
-document.getElementById('balances').onclick = async function () {
+
+document.getElementById('buyGumball').onclick = async function () {
   // Construct manifest
   const manifest = new ManifestBuilder()
-    .callMethod(componentAddress, 'balances', ['Bucket("xrd")'])
+    .withdrawFromAccountByAmount(accountAddress, 1, '030000000000000000000000000000000000000000000000000004')
+    .takeFromWorktop('030000000000000000000000000000000000000000000000000004', 'xrd')
+    .callMethod(componentAddress, 'buy_gumball', ['Bucket("xrd")'])
+    .callMethodWithAllResources(accountAddress, 'deposit_batch')
     .build()
     .toString();
 
@@ -65,25 +69,8 @@ document.getElementById('balances').onclick = async function () {
   const receipt = await signTransaction(manifest);
 
   // Update UI
-  document.getElementById('balances-receipt').innerText = JSON.stringify(receipt, null, 2);
+  document.getElementById('receipt').innerText = JSON.stringify(receipt, null, 2);
 };
-
-// document.getElementById('buyGumball').onclick = async function () {
-//   // Construct manifest
-//   const manifest = new ManifestBuilder()
-//     .withdrawFromAccountByAmount(accountAddress, 1, '030000000000000000000000000000000000000000000000000004')
-//     .takeFromWorktop('030000000000000000000000000000000000000000000000000004', 'xrd')
-//     .callMethod(componentAddress, 'buy_gumball', ['Bucket("xrd")'])
-//     .callMethodWithAllResources(accountAddress, 'deposit_batch')
-//     .build()
-//     .toString();
-
-//   // Send manifest to extension for signing
-//   const receipt = await signTransaction(manifest);
-
-//   // Update UI
-//   document.getElementById('receipt').innerText = JSON.stringify(receipt, null, 2);
-// };
 
 document.getElementById('checkBalance').onclick = async function () {
   // Retrieve component info from PTE service
